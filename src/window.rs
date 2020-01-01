@@ -1,16 +1,17 @@
 use anyhow::Context as AnyhowContext;
-use piet::RenderContext;
-use std::future::Future;
-use std::os::unix::io::RawFd;
-use std::rc::Rc;
-use xcb_util::ewmh;
+use futures::stream::Stream;
 use mio::unix::EventedFd;
 use mio::{PollOpt, Ready, Token};
-use tokio::stream::Stream;
-use std::task::{Poll, Context};
+use piet::RenderContext;
+use std::os::unix::io::RawFd;
 use std::pin::Pin;
+use std::rc::Rc;
+use std::task::{Context, Poll};
+use stretch::Stretch;
+use xcb_util::ewmh;
 // The following two functions are from https://github.com/mjkillough/cnx/blob/master/src/bar.rs
 
+use crate::draw;
 use crate::object::Object;
 
 fn get_root_visual_type(conn: &xcb::Connection, screen: &xcb::Screen<'_>) -> xcb::Visualtype {
@@ -47,10 +48,33 @@ fn cairo_surface_for_xcb_window(
     cairo::XCBSurface::create(&cairo_conn, &drawable, &visual, width, height)
 }
 
+#[derive(Debug)]
+struct NodeObject {
+    node: stretch::node::Node,
+    object: Option<Object>,
+    children: Vec<NodeObject>,
+}
+
+impl NodeObject {
+    fn new(node: stretch::node::Node, object: Option<Object>) -> NodeObject {
+        NodeObject {
+            node,
+            object,
+            children: vec![],
+        }
+    }
+
+    fn add_child(&mut self, obj: NodeObject) {
+        self.children.push(obj);
+    }
+}
+
 pub struct Window {
     ewmh_connection: Rc<ewmh::Connection>,
     window: u32,
     context: cairo::Context,
+    width: u16,
+    height: u16,
 }
 
 impl Window {
@@ -99,19 +123,180 @@ impl Window {
             ewmh_connection: Rc::new(ewmh_connection),
             window,
             context,
+            width,
+            height,
         })
     }
 
-    pub fn draw(&mut self, objects: &Object) -> anyhow::Result<()> {
+    pub fn draw(&mut self, root_objects: Vec<Object>) -> anyhow::Result<()> {
         let mut crc = piet_cairo::CairoRenderContext::new(&mut self.context);
         crc.clear(piet::Color::WHITE);
 
-        let brush = crc.solid_brush(piet::Color::rgb8(0, 0, 0x80));
-        crc.stroke(
-            piet::kurbo::Line::new((0.0, 0.0), (150.0, 150.0)),
-            &brush,
-            1.0,
+        let mut stretch = Stretch::new();
+
+        let root_node = stretch
+            .new_node(draw::root_style(), vec![])
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+        let mut root_obj = NodeObject::new(root_node, None);
+
+        fn create_node_objects(
+            stretch: &mut Stretch,
+            root: &mut NodeObject,
+            children: Vec<Object>,
+        ) -> anyhow::Result<()> {
+            for child in children {
+                let node = {
+                    match child {
+                        Object::Container { .. } => stretch
+                            .new_node(child.get_style(), vec![])
+                            .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                        Object::Text { .. } => {
+                            let child = child.clone();
+                            stretch
+                                .new_leaf(
+                                    child.get_style(),
+                                    Box::new(move |size| child.compute_size(size)),
+                                )
+                                .map_err(|e| anyhow::anyhow!(e.to_string()))?
+                        }
+                    }
+                };
+
+                let mut nobj = NodeObject::new(node, Some(child));
+
+                if let Some(ref mut obj) = &mut nobj.object {
+                    match obj {
+                        Object::Container {
+                            ref mut children, ..
+                        } => {
+                            let children = std::mem::replace(children, vec![]);
+                            create_node_objects(stretch, &mut nobj, children)?;
+                        }
+                        _ => (),
+                    }
+                }
+                stretch
+                    .add_child(root.node, node)
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                root.add_child(nobj);
+            }
+
+            Ok(())
+        }
+
+        create_node_objects(&mut stretch, &mut root_obj, root_objects)?;
+
+        stretch
+            .compute_layout(
+                root_node,
+                stretch::geometry::Size {
+                    width: stretch::number::Number::Defined(self.width as f32),
+                    height: stretch::number::Number::Defined(self.height as f32),
+                },
+            )
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+        let root_layout = stretch
+            .layout(root_node)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+        draw::draw_rectangle(
+            &mut crc,
+            root_layout.location.x,
+            root_layout.location.y,
+            root_layout.size.width,
+            root_layout.size.height,
+            &piet::Color::grey8(0xDD),
         );
+
+        fn draw_node_objects(
+            stretch: &Stretch,
+            rc: &mut impl piet::RenderContext,
+            obj: NodeObject,
+        ) -> anyhow::Result<()> {
+            let node_layout = stretch
+                .layout(obj.node)
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+            println!("{:#?}", node_layout);
+
+            if let Some(obj) = obj.object {
+                if let Some(color) = &obj.get_background() {
+                    draw::draw_rectangle(
+                        rc,
+                        node_layout.location.x,
+                        node_layout.location.y,
+                        node_layout.size.width,
+                        node_layout.size.height,
+                        color,
+                    );
+                }
+
+                match obj {
+                    Object::Container { .. } => {
+                        // Do nothing as its just a container
+                    }
+                    Object::Text {
+                        text,
+                        font,
+                        font_size,
+                        color,
+                        ..
+                    } => {
+                        use piet::{FontBuilder, Text, TextLayoutBuilder};
+
+                        let text_builder = rc.text();
+                        let font = text_builder
+                            .new_font_by_name(&font, font_size)
+                            .build()
+                            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                        let text_layout = text_builder
+                            .new_text_layout(&font, &text)
+                            .build()
+                            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                        let brush = rc.solid_brush(color);
+                        // draw::draw_rectangle(
+                        //     rc,
+                        //     node_layout.location.x,
+                        //     node_layout.location.y,
+                        //     node_layout.size.width,
+                        //     node_layout.size.height,
+                        //     &piet::Color::rgba(0xDD, 0xDD, 0xDD, 100),
+                        // );
+                        let half_height = node_layout.size.height;
+                        rc.draw_text(
+                            &text_layout,
+                            (
+                                node_layout.location.x as f64,
+                                (node_layout.location.y + half_height) as f64,
+                            ),
+                            &brush,
+                        );
+                    }
+                }
+            }
+            rc.save().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            rc.transform(kurbo::Affine::translate((
+                node_layout.location.x as f64,
+                node_layout.location.y as f64,
+            )));
+            rc.clip(kurbo::Rect::new(
+                0.,
+                0.,
+                node_layout.size.width as f64,
+                node_layout.size.height as f64,
+            ));
+            for child in obj.children {
+                draw_node_objects(stretch, rc, child)?;
+            }
+            rc.restore().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            Ok(())
+        }
+
+        draw_node_objects(&stretch, &mut crc, root_obj)?;
+
+        crc.finish().map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
         xcb::map_window(&self.ewmh_connection, self.window).request_check()?;
         self.ewmh_connection.flush();
@@ -128,7 +313,6 @@ impl Window {
 
 pub enum WindowEvent {
     Draw,
-    Quit,
     Unknown,
 }
 
@@ -191,7 +375,7 @@ impl Stream for WindowEventStream {
                 }
             }
             None => {
-                self.poll_evented.clear_read_ready(cx, ready);
+                self.poll_evented.clear_read_ready(cx, ready)?;
                 return Poll::Pending;
             }
         }

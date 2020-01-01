@@ -17,3 +17,9 @@ piet-cairo = "0.0.7"
 structopt = "0.3.7"
 tokio = { version = "0.2.6", features = ["full"] }
 mio = "0.6.21"
+stretch = { git = "https://github.com/vislyhq/stretch.git", rev="523ef1c2744a6d45c6be5dc48a9d86ea07c6719b", features = ["serde_camel_case"] }
+kurbo = "0.5.6"
+futures = "0.3.1"
+serde = "1.0.104"
+serde_json = "1.0.44"
+serde_derive = "1.0.104"
