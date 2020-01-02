@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     _ => {
                         // Unknown event? Not cared
-                        println!("Unknown event");
+                        eprintln!("Unknown event");
                     }
                 }
             }

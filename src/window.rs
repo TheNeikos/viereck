@@ -219,8 +219,6 @@ impl Window {
                 .layout(obj.node)
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-            println!("{:#?}", node_layout);
-
             if let Some(obj) = obj.object {
                 if let Some(color) = &obj.get_background() {
                     draw::draw_rectangle(

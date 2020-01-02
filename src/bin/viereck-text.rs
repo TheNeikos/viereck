@@ -34,63 +34,53 @@ pub fn parse_hex(input: &str) -> Result<u32> {
 #[structopt(name = "viereck-container", about = "viereck-container makes it easy to create viereck containers")]
 struct CmdOptions {
     /// Width position
-    #[structopt(long, parse(try_from_str = parse_dimension))]
+    #[structopt(short, long, parse(try_from_str = parse_dimension))]
     width: Option<stretch::style::Dimension>,
     /// Height position
-    #[structopt(long, parse(try_from_str = parse_dimension))]
+    #[structopt(short, long, parse(try_from_str = parse_dimension))]
     height: Option<stretch::style::Dimension>,
     /// Grow the container if there is space
-    #[structopt(long)]
+    #[structopt(short, long)]
     grow: Option<f32>,
     /// Shrink the container if there is not enough space
-    #[structopt(long)]
+    #[structopt(short, long)]
     shrink: Option<f32>,
-    /// Margin (to the outside container)
-    #[structopt(long, parse(try_from_str = parse_dimension))]
-    margin: Option<stretch::style::Dimension>,
-    /// Padding (to the inside content)
-    #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding: Option<stretch::style::Dimension>,
-    /// Child contents
-    #[structopt(short, long, parse(try_from_str = parse_object))]
-    children: Vec<Object>,
-    /// Background 
-    /// 
-    /// In rgba hex format 0xXXXXXXXX
+    /// Font
+    #[structopt(short, long)]
+    font: String,
+    /// Font Size
+    #[structopt(short = "-z", long)]
+    font_size: f64,
+    /// Text
+    #[structopt(short, long)]
+    text: String,
+    /// Text color
     #[structopt(short, long, parse(try_from_str = parse_hex))]
-    background: Option<u32>,
+    color: u32,
 }
 
 fn main() -> Result<()> {
     let opt = CmdOptions::from_args();
 
-    let obj = Object::Container {
-        style: stretch::style::Style {
+    let obj = Object::Text {
+        style: Some(stretch::style::Style {
             size: stretch::geometry::Size {
                 width: opt.width.unwrap_or(stretch::style::Dimension::Auto),
                 height: opt.height.unwrap_or(stretch::style::Dimension::Auto),
             },
-            margin: stretch::geometry::Rect {
-                start: opt.margin.unwrap_or_default(),
-                end: opt.margin.unwrap_or_default(),
-                top: opt.margin.unwrap_or_default(),
-                bottom: opt.margin.unwrap_or_default(),
-            },
-            padding: stretch::geometry::Rect {
-                start: opt.padding.unwrap_or_default(),
-                end: opt.padding.unwrap_or_default(),
-                top: opt.padding.unwrap_or_default(),
-                bottom: opt.padding.unwrap_or_default(),
-            },
             flex_grow: opt.grow.unwrap_or_default(),
             flex_shrink: opt.shrink.unwrap_or_default(),
+            align_self: stretch::style::AlignSelf::Baseline,
             ..Default::default()
-        },
-        background: opt.background.map(piet::Color::from_rgba32_u32),
-        children: opt.children,
+        }),
+        text: opt.text,
+        font: opt.font,
+        color: piet::Color::from_rgba32_u32(opt.color),
+        font_size: opt.font_size,
     };
 
     println!("{}", to_string(&obj)?);
 
     Ok(())
 }
+
