@@ -4,8 +4,8 @@ set -e
 set -o nounset
 set -o pipefail
 
-container() { ./target/release/viereck-container "$@" ;}
-text() { ./target/release/viereck-text "$@" ;}
+container() { ../target/release/viereck-container "$@" ;}
+text() { ../target/release/viereck-text "$@" ;}
 
 simple_text() { text --font "DejaVu Sans Mono" --font-size 12 "$@" ;}
 
@@ -13,21 +13,28 @@ uniq_linebuffered() {
   awk '$0 != l { print ; l=$0 ; fflush(); }' "$@"
 }
 
-function join_by { local IFS="$1"; shift; echo "$*"; }
+ELAPSED=$(date +%s.%N)
+
+debug() {
+  now=$(date +%s.%N)
+  echo "[$(bc <<< "$now - $ELAPSED")]" "$*" >&2
+  ELAPSED=$(date +%s.%N)
+}
 
 {
     while true ; do
         # "date" output is checked once a second, but an event is only
         # generated if the output changed compared to the previous run.
-        date +$'date\t%H:%M:%S, %Y-%m-%d'
+        date +$'date\t%H:%M:%S %Y-%m-%d'
         sleep 1 || break
     done &
-    herbstclient --idle 
+    herbstclient --idle &
 } | {
   IFS=$'\t' read -ra tags <<< "$(herbstclient tag_status)"
   date=""
   windowtitle=""
   while true; do
+    debug "Starting loop"
     tag_objects=()
 
     for i in "${tags[@]}" ; do
@@ -62,6 +69,7 @@ function join_by { local IFS="$1"; shift; echo "$*"; }
           ;;
       esac
     done
+    debug "Done checking tags"
 
     TAG_TEXT=$(container "${tag_objects[@]}")
 
@@ -74,22 +82,26 @@ function join_by { local IFS="$1"; shift; echo "$*"; }
       --padding 2 --padding-end 5 --padding-start 5 \
       --background 0xFF \
       --children "$TITLE_TEXT" \
+      --align-items center \
       --grow 1)
 
-    DATE_TEXT=$(text \
+    DATE_TEXT=$(simple_text \
       --text "$date" \
-      --font "DejaVu Sans Mono" \
-      --font-size 12 \
       --color 0xFFFFFFFF )
 
     RIGHT=$(container \
       --padding 2 --padding-end 5 --padding-start 5 \
+      --align-items center \
       --background 0x123456FF \
+      --shrink 0 \
       --children "$DATE_TEXT")
 
     echo "[$LEFT, $CENTER, $RIGHT]"
+    debug "Done printing JSON"
 
     IFS=$'\t' read -ra cmd || break
+
+    debug "Received: ${cmd[*]}" 
     case "${cmd[0]}" in
       tag*)
         # echo "resetting tags" >&2

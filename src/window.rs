@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 use anyhow::Context as AnyhowContext;
 use futures::stream::Stream;
 use mio::unix::EventedFd;
@@ -38,10 +39,10 @@ fn cairo_surface_for_xcb_window(
     let cairo_conn = unsafe {
         cairo::XCBConnection::from_raw_none(conn.get_raw_conn() as *mut cairo_sys::xcb_connection_t)
     };
+    let root_visual: *mut xcb::ffi::xcb_visualtype_t = &mut get_root_visual_type(conn, screen).base;
     let visual = unsafe {
         cairo::XCBVisualType::from_raw_none(
-            &mut get_root_visual_type(conn, screen).base as *mut xcb::ffi::xcb_visualtype_t
-                as *mut cairo_sys::xcb_visualtype_t,
+                root_visual as *mut cairo_sys::xcb_visualtype_t,
         )
     };
     let drawable = cairo::XCBDrawable(id);
@@ -212,7 +213,7 @@ impl Window {
 
         fn draw_node_objects(
             stretch: &Stretch,
-            rc: &mut impl piet::RenderContext,
+            rc: &mut impl RenderContext,
             obj: NodeObject,
         ) -> anyhow::Result<()> {
             let node_layout = stretch

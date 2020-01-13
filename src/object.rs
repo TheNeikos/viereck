@@ -1,14 +1,14 @@
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(remote = "piet::Color")]
- enum ColorDef {
+pub enum ColorDef {
     Rgba32(u32),
 }
 
 mod opt_external_color {
     use super::ColorDef;
-    use serde::{Serialize, Serializer, Deserialize, Deserializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S>(value: &Option<piet::Color>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -34,20 +34,20 @@ mod opt_external_color {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum Object {
+pub enum Object<S = stretch::style::Style> {
     Container {
         children: Vec<Object>,
-        style: stretch::style::Style,
-        #[serde(default, with = "opt_external_color", )]
+        style: S,
+        #[serde(default, with = "opt_external_color")]
         background: Option<piet::Color>,
     },
     Text {
         font: String,
         text: String,
         font_size: f64,
-        #[serde(with = "ColorDef", )]
+        #[serde(with = "ColorDef")]
         color: piet::Color,
-        style: Option<stretch::style::Style>,
+        style: S,
     },
 }
 
@@ -55,10 +55,7 @@ impl Object {
     pub fn get_style(&self) -> stretch::style::Style {
         match self {
             Self::Container { style, .. } => style.clone(),
-            Self::Text { style, .. } => style.unwrap_or(stretch::style::Style {
-                align_self: stretch::style::AlignSelf::Baseline,
-                ..Default::default()
-            }),
+            Self::Text { style, .. } => style.clone(),
         }
     }
 

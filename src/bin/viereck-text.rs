@@ -1,8 +1,10 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use serde_json::{from_str, to_string};
 use structopt::StructOpt;
-use serde_json::{to_string, from_str};
 
 mod common;
+
+use common::style::Style;
 
 use viereck::object::Object;
 
@@ -33,7 +35,10 @@ pub fn parse_hex(input: &str) -> Result<u32> {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "viereck-container", about = "viereck-container makes it easy to create viereck containers")]
+#[structopt(
+    name = "viereck-container",
+    about = "viereck-container makes it easy to create viereck containers"
+)]
 struct CmdOptions {
     #[structopt(flatten)]
     style: common::style::StyleOpts,
@@ -54,20 +59,22 @@ struct CmdOptions {
 fn main() -> Result<()> {
     let opt = CmdOptions::from_args();
 
-    let mut obj = Object::Text {
-        style: Some(opt.style.to_style()),
+    let mut obj = Object::<Style>::Text {
+        style: opt.style.to_style(),
         text: opt.text,
         font: opt.font,
         color: piet::Color::from_rgba32_u32(opt.color),
         font_size: opt.font_size,
     };
 
-    if let Object::Text { style: Some(style), .. } = &mut obj {
-        style.align_self = stretch::style::AlignSelf::Baseline;
+    if let Object::Text {
+        style, ..
+    } = &mut obj
+    {
+        style.align_self = style.align_self.or(Some(stretch::style::AlignSelf::Baseline));
     }
 
     println!("{}", to_string(&obj)?);
 
     Ok(())
 }
-

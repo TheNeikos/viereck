@@ -29,8 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut win = window::Window::new(opt.x, opt.y, opt.width, opt.height)?;
 
-    let mut root_objs = vec![
-    ];
+    let mut root_objs = vec![];
 
     enum Events {
         Window(window::WindowEvent),
