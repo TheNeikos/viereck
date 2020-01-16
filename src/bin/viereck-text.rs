@@ -71,7 +71,7 @@ fn main() -> Result<()> {
         style, ..
     } = &mut obj
     {
-        style.align_self = style.align_self.or(Some(stretch::style::AlignSelf::Baseline));
+        // style.align_self = style.align_self.or(Some(stretch::style::AlignSelf::Baseline));
     }
 
     println!("{}", to_string(&obj)?);
