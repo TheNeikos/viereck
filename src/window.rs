@@ -41,9 +41,7 @@ fn cairo_surface_for_xcb_window(
     };
     let root_visual: *mut xcb::ffi::xcb_visualtype_t = &mut get_root_visual_type(conn, screen).base;
     let visual = unsafe {
-        cairo::XCBVisualType::from_raw_none(
-                root_visual as *mut cairo_sys::xcb_visualtype_t,
-        )
+        cairo::XCBVisualType::from_raw_none(root_visual as *mut cairo_sys::xcb_visualtype_t)
     };
     let drawable = cairo::XCBDrawable(id);
     cairo::XCBSurface::create(&cairo_conn, &drawable, &visual, width, height)
@@ -300,6 +298,7 @@ impl Window {
         xcb::map_window(&self.ewmh_connection, self.window).request_check()?;
         self.ewmh_connection.flush();
 
+        self.context.paint();
         Ok(())
     }
 
