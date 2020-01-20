@@ -128,6 +128,7 @@ impl Window {
     }
 
     pub fn draw(&mut self, root_objects: Vec<Object>) -> anyhow::Result<()> {
+        self.context.push_group();
         let mut crc = piet_cairo::CairoRenderContext::new(&mut self.context);
         crc.clear(piet::Color::WHITE);
 
@@ -298,6 +299,7 @@ impl Window {
         xcb::map_window(&self.ewmh_connection, self.window).request_check()?;
         self.ewmh_connection.flush();
 
+        self.context.pop_group_to_source();
         self.context.paint();
         Ok(())
     }
