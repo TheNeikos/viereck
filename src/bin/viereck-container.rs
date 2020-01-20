@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde_derive::Serialize;
-use serde_json::{to_string};
+use serde_json::to_string;
 use structopt::StructOpt;
 
 mod common;
@@ -32,8 +32,8 @@ struct CmdOptions {
 // KEEP THE BELOW ENUM IN SYNC!!
 //
 mod opt_external_color {
-    use viereck::object::ColorDef;
     use serde::{Serialize, Serializer};
+    use viereck::object::ColorDef;
 
     pub fn serialize<S>(value: &Option<piet::Color>, serializer: S) -> Result<S::Ok, S::Error>
     where

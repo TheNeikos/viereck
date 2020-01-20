@@ -19,6 +19,6 @@ while true; do
     text=$(simple_text --color 0xFF --text $i)
     items+=($(container --width $i% --background 0xFF22FFFF --justify-content center --children "$text"))
     echo "[${items[@]}]"
-    sleep 0.001
+    sleep 0.0001
   done
 done

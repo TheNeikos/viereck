@@ -68,9 +68,10 @@ impl Object {
 
     pub fn compute_size(
         &self,
-        _size: stretch::geometry::Size<stretch::number::Number>,
+        size: stretch::geometry::Size<stretch::number::Number>,
     ) -> Result<stretch::geometry::Size<f32>, Box<dyn std::any::Any>> {
         use piet::{FontBuilder, Text, TextLayout, TextLayoutBuilder};
+        use stretch::number::MinMax;
         match self {
             Self::Text {
                 font,
@@ -86,8 +87,8 @@ impl Object {
                 let text_layout = text_builder.new_text_layout(&font, &text).build().unwrap();
                 let width = text_layout.width() as f32;
                 Ok(stretch::geometry::Size {
-                    width,
-                    height: *font_size as f32,
+                    width: width.maybe_min(size.width),
+                    height: (*font_size as f32).maybe_min(size.height),
                 })
             }
             _ => Err(Box::new(())),

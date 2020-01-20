@@ -67,7 +67,6 @@ fn parse_flex_direction(input: &str) -> Result<stretch::style::FlexDirection> {
     })
 }
 
-
 fn parse_dimension(input: &str) -> Result<stretch::style::Dimension> {
     if let "auto" = input {
         return Ok(stretch::style::Dimension::Auto);

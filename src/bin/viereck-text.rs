@@ -67,10 +67,7 @@ fn main() -> Result<()> {
         font_size: opt.font_size,
     };
 
-    if let Object::Text {
-        style, ..
-    } = &mut obj
-    {
+    if let Object::Text { style, .. } = &mut obj {
         // style.align_self = style.align_self.or(Some(stretch::style::AlignSelf::Baseline));
     }
 

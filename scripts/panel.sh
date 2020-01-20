@@ -38,36 +38,69 @@ debug() {
     tag_objects=()
 
     for i in "${tags[@]}" ; do
-      tag_objects+=("-c")
       case ${i:0:1} in
         '#')
-          inner_text=$(simple_text --color 0x101010FF --text "${i:1}")
-          tag_objects+=("$(container \
-            --padding 2 --padding-end 5 --padding-start 5 \
-            --align-items center --background 0x9FBC00FF -c "$inner_text")")
+          text_color="101010FF"
+          bg_color="9FBC00FF"
           ;;
         '+')
-          tag_objects+=("$(container \
-            --padding 2 --padding-end 5 --padding-start 5 \
-            --align-items center --background 0xFF -c "$(simple_text --color 0xFF --text "${i:1}")")")
+          text_color="FFFFFFFF"
+          bg_color="000000FF" 
           ;;
         ':')
-          inner_text=$(simple_text --color 0xFFFFFFFF --text "${i:1}")
-          tag_objects+=("$(container \
-            --padding 2 --padding-end 5 --padding-start 5 \
-            --align-items center --background 0x777777FF -c "$inner_text")")
+          text_color="FFFFFFFF"
+          bg_color="777777FF"
           ;;
         '!')
-          tag_objects+=("$(container \
-            --padding 2 --padding-end 5 --padding-start 5 \
-            --align-items center --background 0xFF -c "$(simple_text --color 0xFF --text "${i:1}")")")
+          text_color="FFFFFFFF"
+          bg_color="FF0000FF" 
           ;;
         *)
-          tag_objects+=("$(container \
-            --padding 2 --padding-end 5 --padding-start 5 \
-            --align-items center --background 0x222222FF -c "$(simple_text --color 0xDDDDDDFF --text "${i:1}")")")
+          bg_color="222222FF"
+          text_color="DDDDDDFF"
           ;;
       esac
+      text=$(cat <<-EOF
+        {
+          "type": "Text",
+          "font": "DejaVu Sans Mono",
+          "text": "${i:1}",
+          "font_size": 12,
+          "color": {
+            "Rgba32": $((16#$text_color))
+          },
+          "style": {}
+        }
+EOF
+)
+      container=$(cat <<-EOF
+        {
+          "type": "Container",
+          "children": [$text],
+          "style": {
+            "padding": {
+              "start": {
+                "points": 5
+              },
+              "end": {
+                "points": 5
+              },
+              "top": {
+                "points": 2
+              },
+              "bottom": {
+                "points": 5
+              }
+            },
+            "align_items": "center"
+          },
+          "background": {
+            "Rgba32": $((16#$bg_color))
+          } 
+        }
+EOF
+)
+      tag_objects+=("-c $(jq -c . <<< "$container")")
     done
     debug "Done checking tags"
 
@@ -93,7 +126,6 @@ debug() {
       --padding 2 --padding-end 5 --padding-start 5 \
       --align-items center \
       --background 0x123456FF \
-      --shrink 0 \
       --children "$DATE_TEXT")
 
     echo "[$LEFT, $CENTER, $RIGHT]"
@@ -111,7 +143,7 @@ debug() {
         date="${cmd[*]:1}"
         ;;
       focus_changed|window_title_changed)
-        windowtitle="${cmd[@]:2}"
+        windowtitle="${cmd[*]:2}"
         ;;
     esac
   done
