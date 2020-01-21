@@ -151,6 +151,7 @@ impl Window {
                         Object::Container { .. } => stretch
                             .new_node(child.get_style(), vec![])
                             .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                        Object::Image { .. } |
                         Object::Text { .. } => {
                             let child = child.clone();
                             stretch
@@ -235,6 +236,9 @@ impl Window {
                     Object::Container { .. } => {
                         // Do nothing as its just a container
                     }
+                    Object::Image { .. } => {
+                        todo!()
+                    }
                     Object::Text {
                         text,
                         font,
@@ -296,11 +300,11 @@ impl Window {
 
         crc.finish().map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-        xcb::map_window(&self.ewmh_connection, self.window).request_check()?;
-        self.ewmh_connection.flush();
-
         self.context.pop_group_to_source();
         self.context.paint();
+
+        xcb::map_window(&self.ewmh_connection, self.window).request_check()?;
+        self.ewmh_connection.flush();
         Ok(())
     }
 

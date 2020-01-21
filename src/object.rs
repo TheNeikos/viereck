@@ -49,6 +49,10 @@ pub enum Object<S = stretch::style::Style> {
         color: piet::Color,
         style: S,
     },
+    Image {
+        style: S,
+        path: String,
+    }
 }
 
 impl Object {
@@ -56,6 +60,7 @@ impl Object {
         match self {
             Self::Container { style, .. } => style.clone(),
             Self::Text { style, .. } => style.clone(),
+            Self::Image { style, .. } => style.clone(),
         }
     }
 
@@ -63,6 +68,7 @@ impl Object {
         match self {
             Self::Container { background, .. } => background.as_ref(),
             Self::Text { .. } => None,
+            Self::Image { .. } => None,
         }
     }
 
@@ -71,7 +77,7 @@ impl Object {
         size: stretch::geometry::Size<stretch::number::Number>,
     ) -> Result<stretch::geometry::Size<f32>, Box<dyn std::any::Any>> {
         use piet::{FontBuilder, Text, TextLayout, TextLayoutBuilder};
-        use stretch::number::MinMax;
+        use stretch::number::{MinMax, OrElse};
         match self {
             Self::Text {
                 font,
@@ -89,6 +95,23 @@ impl Object {
                 Ok(stretch::geometry::Size {
                     width: width.maybe_min(size.width),
                     height: (*font_size as f32).maybe_min(size.height),
+                })
+            }
+            Self::Image {
+                style, 
+                ..
+            } => {
+
+                let dim_or_default = |dim, num| {
+                    match dim {
+                        stretch::style::Dimension::Points(p) => p,
+                        _ => num
+                    }
+                };
+
+                Ok(stretch::geometry::Size {
+                    width: dim_or_default(style.size.width, size.width.or_else(0.)),
+                    height: dim_or_default(style.size.height, size.height.or_else(0.)),
                 })
             }
             _ => Err(Box::new(())),
