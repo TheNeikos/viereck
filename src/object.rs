@@ -36,10 +36,11 @@ mod opt_external_color {
 #[serde(tag = "type")]
 pub enum Object<S = stretch::style::Style> {
     Container {
-        children: Vec<Object>,
+        children: Vec<Object<S>>,
         style: S,
         #[serde(default, with = "opt_external_color")]
         background: Option<piet::Color>,
+        corner_radius: Option<f64>,
     },
     Text {
         font: String,
@@ -52,7 +53,7 @@ pub enum Object<S = stretch::style::Style> {
     Image {
         style: S,
         path: String,
-    }
+    },
 }
 
 impl Object {
@@ -77,7 +78,7 @@ impl Object {
         size: stretch::geometry::Size<stretch::number::Number>,
     ) -> Result<stretch::geometry::Size<f32>, Box<dyn std::any::Any>> {
         use piet::{FontBuilder, Text, TextLayout, TextLayoutBuilder};
-        use stretch::number::{MinMax, OrElse};
+        use stretch::number::MinMax;
         match self {
             Self::Text {
                 font,
@@ -97,21 +98,14 @@ impl Object {
                     height: (*font_size as f32).maybe_min(size.height),
                 })
             }
-            Self::Image {
-                style, 
-                ..
-            } => {
-
-                let dim_or_default = |dim, num| {
-                    match dim {
-                        stretch::style::Dimension::Points(p) => p,
-                        _ => num
-                    }
-                };
-
+            Self::Image { path, .. } => {
+                let mut image = std::fs::File::open(&path).unwrap();
+                let img = cairo::ImageSurface::create_from_png(&mut image).unwrap();
+                let width = img.get_width() as f32;
+                let height = img.get_height() as f32;
                 Ok(stretch::geometry::Size {
-                    width: dim_or_default(style.size.width, size.width.or_else(0.)),
-                    height: dim_or_default(style.size.height, size.height.or_else(0.)),
+                    width: width.maybe_min(size.width),
+                    height: height.maybe_min(size.height),
                 })
             }
             _ => Err(Box::new(())),

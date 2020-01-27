@@ -85,50 +85,61 @@ fn parse_dimension(input: &str) -> Result<stretch::style::Dimension> {
     Err(anyhow!("{} is not a dimension, expected 'auto', a number (representing pixels) or percentage (0% - 100%)", input))
 }
 
+fn parse_number(input: &str) -> Result<stretch::number::Number> {
+    if let Ok(pts) = input.parse() {
+        return Ok(stretch::number::Number::Defined(pts));
+    }
+
+    Err(anyhow!("{} is not a number, expected a number", input))
+}
+
 #[derive(Debug, StructOpt, Clone)]
 pub struct StyleOpts {
     /// Width position
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    width: Option<stretch::style::Dimension>,
+    pub width: Option<stretch::style::Dimension>,
     /// Height position
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    height: Option<stretch::style::Dimension>,
+    pub height: Option<stretch::style::Dimension>,
     /// Grow the container if there is space
     #[structopt(long)]
-    grow: Option<f32>,
+    pub grow: Option<f32>,
     /// Shrink the container if there is not enough space
     #[structopt(long)]
-    shrink: Option<f32>,
+    pub shrink: Option<f32>,
     /// Margin (to the outside container)
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    margin: Option<stretch::style::Dimension>,
+    pub margin: Option<stretch::style::Dimension>,
     /// Padding (to the inside content)
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding: Option<stretch::style::Dimension>,
+    pub padding: Option<stretch::style::Dimension>,
     /// Padding end (the right side if ltr)
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding_end: Option<stretch::style::Dimension>,
+    pub padding_end: Option<stretch::style::Dimension>,
     /// Padding start (the left side if ltr)
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding_start: Option<stretch::style::Dimension>,
+    pub padding_start: Option<stretch::style::Dimension>,
     /// Padding top
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding_top: Option<stretch::style::Dimension>,
+    pub padding_top: Option<stretch::style::Dimension>,
     /// Padding bottom
     #[structopt(long, parse(try_from_str = parse_dimension))]
-    padding_bottom: Option<stretch::style::Dimension>,
+    pub padding_bottom: Option<stretch::style::Dimension>,
     /// How to align items inside in the cross-axis
     #[structopt(long, parse(try_from_str = parse_align_items))]
-    align_items: Option<stretch::style::AlignItems>,
+    pub align_items: Option<stretch::style::AlignItems>,
     /// How to align itself inside in the parents cross-axis
     #[structopt(long, parse(try_from_str = parse_align_self))]
-    align_self: Option<stretch::style::AlignSelf>,
+    pub align_self: Option<stretch::style::AlignSelf>,
     /// How to align items inside in the main-axis
     #[structopt(long, parse(try_from_str = parse_justify_content))]
-    justify_content: Option<stretch::style::JustifyContent>,
+    pub justify_content: Option<stretch::style::JustifyContent>,
     /// In which direction to layout items
     #[structopt(long, parse(try_from_str = parse_flex_direction))]
-    flex_direction: Option<stretch::style::FlexDirection>,
+    pub flex_direction: Option<stretch::style::FlexDirection>,
+    /// Aspect Ratio
+    #[structopt(long, parse(try_from_str = parse_number))]
+    pub aspect_ratio: Option<stretch::number::Number>,
 }
 
 impl StyleOpts {
@@ -181,6 +192,7 @@ impl StyleOpts {
             align_self: self.align_self,
             justify_content: self.justify_content,
             flex_direction: self.flex_direction,
+            aspect_ratio: self.aspect_ratio,
             ..Default::default()
         }
     }

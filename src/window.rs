@@ -35,7 +35,7 @@ fn cairo_surface_for_xcb_window(
     id: u32,
     width: i32,
     height: i32,
-) -> cairo::XCBSurface {
+) -> Result<cairo::XCBSurface, cairo::Status> {
     let cairo_conn = unsafe {
         cairo::XCBConnection::from_raw_none(conn.get_raw_conn() as *mut cairo_sys::xcb_connection_t)
     };
@@ -102,7 +102,8 @@ impl Window {
         );
 
         let surface =
-            cairo_surface_for_xcb_window(&connection, &screen, window, width.into(), height.into());
+            cairo_surface_for_xcb_window(&connection, &screen, window, width.into(), height.into())
+                .map_err(|_| anyhow::anyhow!("Could not get surface for xcb_window"))?;
 
         let ewmh_connection = ewmh::Connection::connect(connection)
             .map_err(|(e, _)| e)
@@ -151,8 +152,7 @@ impl Window {
                         Object::Container { .. } => stretch
                             .new_node(child.get_style(), vec![])
                             .map_err(|e| anyhow::anyhow!(e.to_string()))?,
-                        Object::Image { .. } |
-                        Object::Text { .. } => {
+                        Object::Image { .. } | Object::Text { .. } => {
                             let child = child.clone();
                             stretch
                                 .new_leaf(
@@ -213,7 +213,7 @@ impl Window {
 
         fn draw_node_objects(
             stretch: &Stretch,
-            rc: &mut impl RenderContext,
+            rc: &mut piet_cairo::CairoRenderContext,
             obj: NodeObject,
         ) -> anyhow::Result<()> {
             let node_layout = stretch
@@ -221,23 +221,46 @@ impl Window {
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
             if let Some(obj) = obj.object {
-                if let Some(color) = &obj.get_background() {
-                    draw::draw_rectangle(
-                        rc,
-                        node_layout.location.x,
-                        node_layout.location.y,
-                        node_layout.size.width,
-                        node_layout.size.height,
-                        color,
-                    );
-                }
-
                 match obj {
-                    Object::Container { .. } => {
-                        // Do nothing as its just a container
+                    Object::Container { background, corner_radius, .. } => {
+                        if let Some(color) = background {
+                            if let Some(radius) = corner_radius {
+                            draw::draw_rounded_rectangle(
+                                rc,
+                                node_layout.location.x,
+                                node_layout.location.y,
+                                node_layout.size.width,
+                                node_layout.size.height,
+                                radius,
+                                &color,
+                                );
+                            } else {
+                            draw::draw_rectangle(
+                                rc,
+                                node_layout.location.x,
+                                node_layout.location.y,
+                                node_layout.size.width,
+                                node_layout.size.height,
+                                &color,
+                                );
+                            }
+                        }
                     }
-                    Object::Image { .. } => {
-                        todo!()
+                    Object::Image { path, .. } => {
+                        let mut file = std::fs::File::open(&path)
+                            .context(format!("Tried opening image file: {}", &path))?;
+                        let surface = cairo::ImageSurface::create_from_png(&mut file)?;
+                        rc.draw_image(
+                            &surface,
+                            kurbo::Rect::from_origin_size(
+                                (node_layout.location.x.into(), node_layout.location.y.into()),
+                                (
+                                    node_layout.size.width.into(),
+                                    node_layout.size.height.into(),
+                                ),
+                            ),
+                            piet::InterpolationMode::Bilinear,
+                        );
                     }
                     Object::Text {
                         text,

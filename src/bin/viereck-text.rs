@@ -59,17 +59,13 @@ struct CmdOptions {
 fn main() -> Result<()> {
     let opt = CmdOptions::from_args();
 
-    let mut obj = Object::<Style>::Text {
+    let obj = Object::<Style>::Text {
         style: opt.style.to_style(),
         text: opt.text,
         font: opt.font,
         color: piet::Color::from_rgba32_u32(opt.color),
         font_size: opt.font_size,
     };
-
-    if let Object::Text { style, .. } = &mut obj {
-        // style.align_self = style.align_self.or(Some(stretch::style::AlignSelf::Baseline));
-    }
 
     println!("{}", to_string(&obj)?);
 
