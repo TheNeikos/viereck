@@ -20,7 +20,11 @@ pub fn draw_rounded_rectangle(
     radius: f64,
     color: &piet::Color,
 ) {
-    let rect = kurbo::RoundedRect::from_origin_size((x as f64, y as f64).into(), (width as f64, height as f64).into(), radius as f64);
+    let rect = kurbo::RoundedRect::from_origin_size(
+        (x as f64, y as f64).into(),
+        (width as f64, height as f64).into(),
+        radius as f64,
+    );
 
     rc.fill(rect, color);
 }

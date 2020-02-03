@@ -59,9 +59,9 @@ pub enum Object<S = stretch::style::Style> {
 impl Object {
     pub fn get_style(&self) -> stretch::style::Style {
         match self {
-            Self::Container { style, .. } => style.clone(),
-            Self::Text { style, .. } => style.clone(),
-            Self::Image { style, .. } => style.clone(),
+            Self::Container { style, .. } => *style,
+            Self::Text { style, .. } => *style,
+            Self::Image { style, .. } => *style,
         }
     }
 

@@ -167,14 +167,12 @@ impl Window {
                 let mut nobj = NodeObject::new(node, Some(child));
 
                 if let Some(ref mut obj) = &mut nobj.object {
-                    match obj {
-                        Object::Container {
-                            ref mut children, ..
-                        } => {
-                            let children = std::mem::replace(children, vec![]);
-                            create_node_objects(stretch, &mut nobj, children)?;
-                        }
-                        _ => (),
+                    if let Object::Container {
+                        ref mut children, ..
+                    } = obj
+                    {
+                        let children = std::mem::replace(children, vec![]);
+                        create_node_objects(stretch, &mut nobj, children)?;
                     }
                 }
                 stretch
@@ -222,26 +220,30 @@ impl Window {
 
             if let Some(obj) = obj.object {
                 match obj {
-                    Object::Container { background, corner_radius, .. } => {
+                    Object::Container {
+                        background,
+                        corner_radius,
+                        ..
+                    } => {
                         if let Some(color) = background {
                             if let Some(radius) = corner_radius {
-                            draw::draw_rounded_rectangle(
-                                rc,
-                                node_layout.location.x,
-                                node_layout.location.y,
-                                node_layout.size.width,
-                                node_layout.size.height,
-                                radius,
-                                &color,
+                                draw::draw_rounded_rectangle(
+                                    rc,
+                                    node_layout.location.x,
+                                    node_layout.location.y,
+                                    node_layout.size.width,
+                                    node_layout.size.height,
+                                    radius,
+                                    &color,
                                 );
                             } else {
-                            draw::draw_rectangle(
-                                rc,
-                                node_layout.location.x,
-                                node_layout.location.y,
-                                node_layout.size.width,
-                                node_layout.size.height,
-                                &color,
+                                draw::draw_rectangle(
+                                    rc,
+                                    node_layout.location.x,
+                                    node_layout.location.y,
+                                    node_layout.size.width,
+                                    node_layout.size.height,
+                                    &color,
                                 );
                             }
                         }
@@ -388,22 +390,21 @@ impl Stream for WindowEventStream {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let ready = Ready::readable();
 
-        match self.poll_evented.poll_read_ready(cx, ready) {
-            Poll::Pending => return Poll::Pending,
-            _ => (),
+        if let Poll::Pending = self.poll_evented.poll_read_ready(cx, ready) {
+            return Poll::Pending;
         }
 
         match self.poll_evented.get_ref().0.poll_for_event() {
             Some(ev) => {
                 if ev.response_type() & !0x80 == xcb::EXPOSE {
-                    return Poll::Ready(Some(Ok(WindowEvent::Draw)));
+                    Poll::Ready(Some(Ok(WindowEvent::Draw)))
                 } else {
-                    return Poll::Ready(Some(Ok(WindowEvent::Unknown)));
+                    Poll::Ready(Some(Ok(WindowEvent::Unknown)))
                 }
             }
             None => {
                 self.poll_evented.clear_read_ready(cx, ready)?;
-                return Poll::Pending;
+                Poll::Pending
             }
         }
     }

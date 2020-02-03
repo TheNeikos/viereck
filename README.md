@@ -115,8 +115,8 @@ The structure one pipes in looks like this:
 - [ ] Make text better to use
     - [ ] Use (optional) ellipses if the text is too long
     - [ ] Positioning is still off
-- [ ] Add picture drawing
-    - [ ] Sent in via base64 or using a path
+- [x] Add picture drawing
+    - [-] Sent in via base64 or using a path
 - [ ] SVG Drawing (?)
 
 # Contributing

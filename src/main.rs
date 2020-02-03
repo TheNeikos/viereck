@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
         .lines()
         .map(|l| match l {
             Ok(line) => Ok(serde_json::from_str(&line).map(Events::Input)?),
-            Err(e) => Err(e)?,
+            Err(e) => Err(e.into()),
         });
 
     let mut events = futures::stream::select(windows_events, input_events);
@@ -65,13 +65,10 @@ async fn main() -> anyhow::Result<()> {
                 win.draw(root_objs.clone())?;
             }
             Err(e) => {
-                match e.downcast_ref() {
-                    Some(serde_json::error::Error { .. }) => {
-                        eprintln!("Could not parse input: {}", e);
-                        e.chain().skip(1).for_each(|c| eprintln!("because: {}", c));
-                        continue;
-                    }
-                    _ => (),
+                if let Some(serde_json::error::Error { .. }) = e.downcast_ref() {
+                    eprintln!("Could not parse input: {}", e);
+                    e.chain().skip(1).for_each(|c| eprintln!("because: {}", c));
+                    continue;
                 }
 
                 eprintln!("Unknown error: {}", e);
